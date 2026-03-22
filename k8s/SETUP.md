@@ -1,4 +1,4 @@
-# AKS Deployment Setup Guide
+# AKS Deployment Setup Guide (OIDC with GitHub Actions)
 
 ## Prerequisites
 
@@ -11,52 +11,99 @@
 
 Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions → New repository secret):
 
-| Secret Name          | Description                                  | Example                     |
-| -------------------- | -------------------------------------------- | --------------------------- |
-| `AZURE_CREDENTIALS`  | Service principal credentials in JSON format | See Step 2                  |
-| `ACR_NAME`           | Your ACR name (without .azurecr.io)          | `mytodoregistry`            |
-| `ACR_LOGIN_SERVER`   | Full ACR login server URL                    | `mytodoregistry.azurecr.io` |
-| `AKS_RESOURCE_GROUP` | Azure resource group containing AKS          | `myresourcegroup`           |
-| `AKS_CLUSTER_NAME`   | Your AKS cluster name                        | `myakscluster`              |
+| Secret Name             | Description                         | Example                     |
+| ----------------------- | ----------------------------------- | --------------------------- |
+| `AZURE_CLIENT_ID`       | Service principal client ID         | See Step 2                  |
+| `AZURE_TENANT_ID`       | Azure tenant ID                     | See Step 2                  |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID               | See Step 2                  |
+| `ACR_NAME`              | Your ACR name (without .azurecr.io) | `mytodoregistry`            |
+| `ACR_LOGIN_SERVER`      | Full ACR login server URL           | `mytodoregistry.azurecr.io` |
+| `AKS_RESOURCE_GROUP`    | Azure resource group containing AKS | `myresourcegroup`           |
+| `AKS_CLUSTER_NAME`      | Your AKS cluster name               | `myakscluster`              |
 
-## Step 2: Create Service Principal and AZURE_CREDENTIALS
+## Step 2: Create Service Principal with OIDC Federation
 
-Run these commands in your terminal:
+This uses OpenID Connect - no need to store credentials!
 
 ```bash
 # Login to Azure
 az login
 
+# Get your subscription ID
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
 # Create a service principal
 az ad sp create-for-rbac --name github-aks-deploy \
   --role "Contributor" \
-  --scopes /subscriptions/<SUBSCRIPTION_ID>
+  --scopes /subscriptions/$SUBSCRIPTION_ID
 ```
 
-Copy the output JSON and use it as the value for the `AZURE_CREDENTIALS` secret.
+Copy the output and extract:
 
-## Step 3: Configure ACR Image Pull
+- `appId` → `AZURE_CLIENT_ID`
+- `tenant` → `AZURE_TENANT_ID`
+- Subscription ID → `AZURE_SUBSCRIPTION_ID`
 
-The workflow needs to pull images from ACR. Create an image pull secret:
+### Set up OIDC Trust (One-time setup)
 
 ```bash
-# Get your ACR admin credentials
-az acr credential show --name <ACR_NAME> --query passwords[0].value -o tsv
+# Set variables
+GITHUB_OWNER=<your-github-username>
+GITHUB_REPO=<your-repo-name>
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+CLIENT_ID=$(az ad sp list --display-name github-aks-deploy --query '[0].appId' -o tsv)
+
+# Create federated credential for branch main
+az identity federated-credential create \
+  --name github-federated \
+  --identity-name github-aks-deploy \
+  --issuer https://token.actions.githubusercontent.com \
+  --subject "repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main" \
+  --resource-group <RESOURCE_GROUP>
+```
+
+Or use Azure CLI to set up with service principal:
+
+```bash
+# Get the object ID
+OBJECT_ID=$(az ad sp show --id <CLIENT_ID> --query id -o tsv)
+
+# Create the federated credential
+az rest --method POST \
+  --uri "https://graph.microsoft.com/beta/applications/<APP_ID>/federatedIdentityCredentials" \
+  --body @- <<EOF
+{
+  "name": "github-federated",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:${GITHUB_OWNER}/${GITHUB_REPO}:ref:refs/heads/main",
+  "description": "GitHub OIDC",
+  "audiences": ["api://AzureADTokenExchange"]
+}
+EOF
+```
+
+## Step 3: Create Kubernetes Secrets for Image Pull and Database
+
+First, create the ACR image pull secret:
+
+```bash
+# Get your ACR credentials
+ACR_USERNAME=$(az acr credential show --name <ACR_NAME> --query username -o tsv)
+ACR_PASSWORD=$(az acr credential show --name <ACR_NAME> --query passwords[0].value -o tsv)
+ACR_LOGIN_SERVER=$(az acr show --name <ACR_NAME> --query loginServer -o tsv)
 
 # Create the image pull secret in your AKS cluster
 kubectl create secret docker-registry acr-secret \
-  --docker-server=<ACR_LOGIN_SERVER> \
-  --docker-username=<ACR_USERNAME> \
-  --docker-password=<ACR_PASSWORD> \
+  --docker-server=$ACR_LOGIN_SERVER \
+  --docker-username=$ACR_USERNAME \
+  --docker-password=$ACR_PASSWORD \
   --docker-email=user@example.com
 
 # Verify it was created
 kubectl get secret acr-secret
 ```
 
-## Step 4: Create Kubernetes Secrets for Database
-
-Create a Kubernetes secret for database credentials:
+Then create the database secrets:
 
 ```bash
 kubectl create secret generic todo-api-secrets \
@@ -71,7 +118,7 @@ kubectl get secret todo-api-secrets
 
 **Note:** If using managed identity with Azure SQL, you can leave db-user and db-password empty in your app.
 
-## Step 5: Create ServiceAccount (Optional but Recommended)
+## Step 4: Create ServiceAccount (Optional but Recommended)
 
 ```bash
 kubectl create serviceaccount todo-api
@@ -80,7 +127,7 @@ kubectl create clusterrolebinding todo-api-binding \
   --serviceaccount=default:todo-api
 ```
 
-## Step 6: Add Health Check Endpoint
+## Step 5: Add Health Check Endpoint
 
 Update your Flask app to include a health check endpoint:
 
@@ -90,7 +137,7 @@ def health():
     return jsonify({"status": "healthy"}), 200
 ```
 
-## Step 7: Deploy
+## Step 6: Deploy
 
 Push to your main branch to trigger the GitHub Actions workflow:
 
@@ -102,7 +149,7 @@ git push origin main
 
 Monitor the workflow in GitHub Actions tab.
 
-## Step 8: Access Your Service
+## Step 7: Access Your Service
 
 Once deployed, get the external IP:
 
