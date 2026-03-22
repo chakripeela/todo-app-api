@@ -1,6 +1,11 @@
 name: Build and Deploy to AKS
 
-on: workflow_dispatch
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
@@ -23,12 +28,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Build and push Docker image with ACR
+      - name: Build and push with ACR Tasks (inside Azure)
         run: |
           az acr build \
             --registry ${{ secrets.ACR_NAME }} \
             --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --image ${{ env.IMAGE_NAME }}:latest \
+            --file Dockerfile \
             .
 
       - name: Update deployment image
