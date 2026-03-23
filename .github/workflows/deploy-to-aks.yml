@@ -36,13 +36,6 @@ jobs:
           sed -i 's|<ACR_LOGIN_SERVER>|${{ env.REGISTRY }}|g' k8s/deployment.yml
           sed -i 's|<IMAGE_TAG>|${{ github.sha }}|g' k8s/deployment.yml
 
-      - name: Attach ACR to AKS
-        run: |
-          az aks update \
-            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
-            --name ${{ secrets.AKS_CLUSTER_NAME }} \
-            --attach-acr ${{ secrets.ACR_NAME }}
-
       - name: Set AKS context
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
