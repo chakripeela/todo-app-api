@@ -23,6 +23,18 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Get GitHub runner IP
+        id: runner-ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
+      - name: Allow runner IP on ACR firewall
+        run: |
+          az acr network-rule add \
+            --name ${{ secrets.ACR_NAME }} \
+            --ip-address ${{ steps.runner-ip.outputs.ip }}
+          # Wait for the rule to propagate
+          sleep 30
+
       - name: Build and push Docker image with ACR
         run: |
           az acr build \
@@ -30,6 +42,13 @@ jobs:
             --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --image ${{ env.IMAGE_NAME }}:latest \
             .
+
+      - name: Remove runner IP from ACR firewall
+        if: always()
+        run: |
+          az acr network-rule remove \
+            --name ${{ secrets.ACR_NAME }} \
+            --ip-address ${{ steps.runner-ip.outputs.ip }}
 
       - name: Update deployment image
         run: |
