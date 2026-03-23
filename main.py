@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from datetime import datetime
 import uuid
 import os
+import struct
 from dotenv import load_dotenv
 import pyodbc
 from contextlib import contextmanager
@@ -60,7 +61,10 @@ def get_db_connection():
     
     if token:
         # For managed identity, use token-based connection
-        conn = pyodbc.connect(connection_string, attrs_before={1256: token})
+        # Token must be encoded as a byte struct for pyodbc (required on ARM64)
+        token_bytes = token.encode('UTF-16-LE')
+        token_struct = struct.pack(f'<I{len(token_bytes)}s', len(token_bytes), token_bytes)
+        conn = pyodbc.connect(connection_string, attrs_before={1256: token_struct})
     else:
         # For SQL auth, use standard connection
         conn = pyodbc.connect(connection_string)
