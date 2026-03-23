@@ -21,17 +21,17 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
-          env:
-            - name: DB_SERVER
-              valueFrom:
-                secretKeyRef:
-                  name: todo-api-secrets
-                  key: db-server
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: todo-api-secrets
-                  key: db-name
+          # env:
+          #   - name: DB_SERVER
+          #     valueFrom:
+          #       secretKeyRef:
+          #         name: todo-api-secrets
+          #         key: db-server
+          #   - name: DB_NAME
+          #     valueFrom:
+          #       secretKeyRef:
+          #         name: todo-api-secrets
+          #         key: db-name
           resources:
             requests:
               cpu: 100m
