@@ -30,7 +30,7 @@ def get_connection_string():
         
         # Connection string with AAD token
         connection_string = (
-            f'Driver={{ODBC Driver 17 for SQL Server}};'
+            f'Driver={{ODBC Driver 18 for SQL Server}};'
             f'Server=tcp:{DB_SERVER},1433;'
             f'Database={DB_NAME};'
             f'Encrypt=yes;'
@@ -41,7 +41,7 @@ def get_connection_string():
     else:
         # Use SQL authentication (for local development)
         connection_string = (
-            f'Driver={{ODBC Driver 17 for SQL Server}};'
+            f'Driver={{ODBC Driver 18 for SQL Server}};'
             f'Server=tcp:{DB_SERVER},1433;'
             f'Database={DB_NAME};'
             f'Uid={DB_USER};'
