@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
-from datetime import datetime
-import uuid
+# from datetime import datetime
+# import uuid
 import os
 from dotenv import load_dotenv
-import pyodbc
-from contextlib import contextmanager
-from azure.identity import DefaultAzureCredential
+# import pyodbc
+# from contextlib import contextmanager
+# from azure.identity import DefaultAzureCredential
 
 # Load environment variables
 load_dotenv()
