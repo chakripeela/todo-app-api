@@ -29,6 +29,7 @@ jobs:
             --registry ${{ secrets.ACR_NAME }} \
             --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --image ${{ env.IMAGE_NAME }}:latest \
+            --platform linux/amd64 \
             .
 
       - name: Update deployment image
