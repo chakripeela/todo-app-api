@@ -177,6 +177,61 @@ def create_task():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/tasks/<task_id>", methods=["PUT"])
+def update_task(task_id):
+    """Update an existing task"""
+    data = request.json
+
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if task exists
+            cursor.execute('SELECT id FROM tasks WHERE id = ?', (task_id,))
+            if not cursor.fetchone():
+                return jsonify({"error": "Task not found"}), 404
+
+            # Build dynamic SET clause
+            fields = []
+            values = []
+            if "title" in data:
+                fields.append("title = ?")
+                values.append(data["title"])
+            if "description" in data:
+                fields.append("description = ?")
+                values.append(data["description"])
+            if "completed" in data:
+                fields.append("completed = ?")
+                values.append(1 if data["completed"] else 0)
+
+            if not fields:
+                return jsonify({"error": "No valid fields to update"}), 400
+
+            values.append(task_id)
+            cursor.execute(f'''
+                UPDATE tasks SET {', '.join(fields)} WHERE id = ?
+            ''', values)
+
+            conn.commit()
+
+            # Fetch the updated task
+            cursor.execute('SELECT id, title, description, completed, createdAt FROM tasks WHERE id = ?', (task_id,))
+            row = cursor.fetchone()
+
+            return jsonify({
+                "id": row[0],
+                "title": row[1],
+                "description": row[2],
+                "completed": bool(row[3]),
+                "createdAt": row[4].isoformat() if row[4] else None
+            })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/tasks/<task_id>", methods=["DELETE"])
 def delete_task(task_id):
     """Delete a task"""
