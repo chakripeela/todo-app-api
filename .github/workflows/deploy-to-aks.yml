@@ -45,6 +45,11 @@ jobs:
           sed -i 's|<ACR_LOGIN_SERVER>|${{ env.REGISTRY }}|g' k8s/deployment.yml
           sed -i 's|<IMAGE_TAG>|${{ github.sha }}|g' k8s/deployment.yml
 
+      - name: Update secret provider class
+        run: |
+          sed -i 's|<key_vault_secrets_provider_client_id>|${{ secrets.KV_SECRETS_PROVIDER_CLIENT_ID }}|g' k8s/secret-provider-class.yml
+          sed -i 's|<your-tenant-id>|${{ secrets.AZURE_TENANT_ID }}|g' k8s/secret-provider-class.yml
+
       - name: Set AKS context
         run: |
           az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
@@ -53,13 +58,10 @@ jobs:
       - name: Create prerequisites
         run: |
           kubectl create serviceaccount todo-api --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic todo-api-secrets \
-            --from-literal=db-server=${{ secrets.DB_SERVER }} \
-            --from-literal=db-name=${{ secrets.DB_NAME }} \
-            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy to AKS
         run: |
+          kubectl apply -f k8s/secret-provider-class.yml
           kubectl apply -f k8s/deployment.yml
           kubectl apply -f k8s/service.yml
           kubectl rollout status deployment/todo-api -n default --timeout=300s
