@@ -13,13 +13,26 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Mount path where the CSI driver places Key Vault secrets as files
+SECRETS_MOUNT_PATH = os.getenv('SECRETS_MOUNT_PATH', '/mnt/secrets-store')
+
+
+def get_secret(name, default=None):
+    """Read a secret from the CSI-mounted volume, falling back to env vars."""
+    secret_file = os.path.join(SECRETS_MOUNT_PATH, name)
+    if os.path.isfile(secret_file):
+        with open(secret_file, 'r') as f:
+            return f.read().strip()
+    # Fallback: env var (upper-cased, hyphens to underscores)
+    env_key = name.upper().replace('-', '_')
+    return os.getenv(env_key, default)
+
+
 # Azure SQL Database connection configuration
-# In K8s these are injected from the CSI-synced Kubernetes Secret (see SecretProviderClass).
-# For local dev, set them as environment variables or in a .env file.
-DB_SERVER = os.getenv('DB_SERVER')
-DB_NAME = os.getenv('DB_NAME')
-DB_USER = os.getenv('DB_USER')      # Optional - for local dev fallback
-DB_PASSWORD = os.getenv('DB_PASSWORD')  # Optional - for local dev fallback
+DB_SERVER = get_secret('db-server')
+DB_NAME = get_secret('db-name')
+DB_USER = get_secret('db-user')      # Optional - for local dev fallback
+DB_PASSWORD = get_secret('db-password')  # Optional - for local dev fallback
 
 
 def get_connection_string():

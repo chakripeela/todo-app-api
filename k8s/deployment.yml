@@ -22,16 +22,8 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: DB_SERVER
-              valueFrom:
-                secretKeyRef:
-                  name: todo-api-secrets
-                  key: DB_SERVER
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: todo-api-secrets
-                  key: DB_NAME
+            - name: SECRETS_MOUNT_PATH
+              value: "/mnt/secrets-store"
           volumeMounts:
             - name: secrets-store
               mountPath: "/mnt/secrets-store"
