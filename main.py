@@ -33,6 +33,7 @@ DB_SERVER = get_secret('db-server')
 DB_NAME = get_secret('db-name')
 DB_USER = get_secret('db-user')      # Optional - for local dev fallback
 DB_PASSWORD = get_secret('db-password')  # Optional - for local dev fallback
+MANAGED_IDENTITY_CLIENT_ID = get_secret('managed-identity-client-id')  # Required in AKS with multiple identities
 
 
 def get_connection_string():
@@ -41,7 +42,9 @@ def get_connection_string():
     # Check if using managed identity (when user/password are not provided)
     if not DB_USER or not DB_PASSWORD:
         # Use managed identity
-        credential = DefaultAzureCredential()
+        credential = DefaultAzureCredential(
+            managed_identity_client_id=MANAGED_IDENTITY_CLIENT_ID
+        )
         token = credential.get_token('https://database.windows.net/.default').token
         
         # Connection string with AAD token
