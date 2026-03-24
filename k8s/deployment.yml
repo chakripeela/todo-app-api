@@ -26,12 +26,16 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: todo-api-secrets
-                  key: db-server
+                  key: DB_SERVER
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
                   name: todo-api-secrets
-                  key: db-name
+                  key: DB_NAME
+          volumeMounts:
+            - name: secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -55,3 +59,10 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 5
             failureThreshold: 3
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "azure-kv-secrets"
