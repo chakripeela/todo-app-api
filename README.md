@@ -47,3 +47,17 @@ curl -X DELETE http://localhost:8000/api/tasks/{id}
 
 **View API docs:**
 http://localhost:8000/docs
+
+**Run below command to get key_vault_secrets_provider_client_id and update in git secret KV_SECRETS_PROVIDER_CLIENT_ID**
+
+```bash
+az aks show --name aks-todoapp --resource-group rg-todo-app-centralus
+```
+
+**Add AKS agentpool managed identity in SQL so that AKS can connect to SQL**
+
+```bash
+CREATE USER [aks-todoapp-agentpool] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [aks-todoapp-agentpool];
+ALTER ROLE db_datawriter ADD MEMBER [aks-todoapp-agentpool];
+```
