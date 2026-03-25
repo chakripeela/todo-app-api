@@ -48,6 +48,15 @@ curl -X DELETE http://localhost:8000/api/tasks/{id}
 **View API docs:**
 http://localhost:8000/docs
 
+**Freelens Setup**
+
+```bash
+az login --tenant d1757f34-71b6-46de-96c4-53d7e63ac048
+ az aks get-credentials --resource-group rg-todo-app-centralus --name aks-todoapp --overwrite-existing
+```
+
+## These are some Manual steps need to be run after the application is deployed
+
 **Run below command to get key_vault_secrets_provider_client_id and update in git secret KV_SECRETS_PROVIDER_CLIENT_ID**
 
 ```bash
