@@ -153,16 +153,19 @@ def init_db():
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
-            # Create tasks table if it doesn't exist
+            # Add user_id column if not exists, or create table with user_id
             cursor.execute('''
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='tasks' AND xtype='U')
                 CREATE TABLE tasks (
                     id NVARCHAR(36) PRIMARY KEY,
+                    user_id NVARCHAR(128) NOT NULL,
                     title NVARCHAR(255) NOT NULL,
                     description NVARCHAR(MAX),
                     completed BIT DEFAULT 0,
                     createdAt DATETIME DEFAULT GETUTCDATE()
                 )
+                ELSE IF NOT EXISTS (SELECT * FROM syscolumns WHERE id=OBJECT_ID('tasks') AND name='user_id')
+                ALTER TABLE tasks ADD user_id NVARCHAR(128) NOT NULL DEFAULT ''
             ''')
             
             conn.commit()
@@ -178,8 +181,8 @@ def get_tasks():
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT id, title, description, completed, createdAt FROM tasks ORDER BY createdAt DESC')
-            
+            user_id = g.user.get("oid")
+            cursor.execute('SELECT id, title, description, completed, createdAt FROM tasks WHERE user_id = ? ORDER BY createdAt DESC', (user_id,))
             tasks = []
             for row in cursor.fetchall():
                 tasks.append({
@@ -189,7 +192,6 @@ def get_tasks():
                     "completed": bool(row[3]),
                     "createdAt": row[4].isoformat() if row[4] else None
                 })
-            
             return jsonify(tasks)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -206,19 +208,17 @@ def create_task():
     task_id = str(uuid.uuid4())
     
     try:
+        user_id = g.user.get("oid")
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO tasks (id, title, description, completed, createdAt)
-                VALUES (?, ?, ?, 0, GETUTCDATE())
-            ''', (task_id, data["title"], data.get("description", "")))
-            
+                INSERT INTO tasks (id, user_id, title, description, completed, createdAt)
+                VALUES (?, ?, ?, ?, 0, GETUTCDATE())
+            ''', (task_id, user_id, data["title"], data.get("description", "")))
             conn.commit()
-            
             # Fetch the created task
             cursor.execute('SELECT id, title, description, completed, createdAt FROM tasks WHERE id = ?', (task_id,))
             row = cursor.fetchone()
-            
             return jsonify({
                 "id": row[0],
                 "title": row[1],
@@ -239,14 +239,13 @@ def update_task(task_id):
         return jsonify({"error": "Request body is required"}), 400
 
     try:
+        user_id = g.user.get("oid")
         with get_db_connection() as conn:
             cursor = conn.cursor()
-
-            # Check if task exists
-            cursor.execute('SELECT id FROM tasks WHERE id = ?', (task_id,))
+            # Check if task exists and belongs to user
+            cursor.execute('SELECT id FROM tasks WHERE id = ? AND user_id = ?', (task_id, user_id))
             if not cursor.fetchone():
-                return jsonify({"error": "Task not found"}), 404
-
+                return jsonify({"error": "Task not found or not owned by user"}), 404
             # Build dynamic SET clause
             fields = []
             values = []
@@ -259,21 +258,17 @@ def update_task(task_id):
             if "completed" in data:
                 fields.append("completed = ?")
                 values.append(1 if data["completed"] else 0)
-
             if not fields:
                 return jsonify({"error": "No valid fields to update"}), 400
-
             values.append(task_id)
+            values.append(user_id)
             cursor.execute(f'''
-                UPDATE tasks SET {', '.join(fields)} WHERE id = ?
+                UPDATE tasks SET {', '.join(fields)} WHERE id = ? AND user_id = ?
             ''', values)
-
             conn.commit()
-
             # Fetch the updated task
             cursor.execute('SELECT id, title, description, completed, createdAt FROM tasks WHERE id = ?', (task_id,))
             row = cursor.fetchone()
-
             return jsonify({
                 "id": row[0],
                 "title": row[1],
@@ -289,18 +284,16 @@ def update_task(task_id):
 def delete_task(task_id):
     """Delete a task"""
     try:
+        user_id = g.user.get("oid")
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            
-            # Check if task exists
-            cursor.execute('SELECT id FROM tasks WHERE id = ?', (task_id,))
+            # Check if task exists and belongs to user
+            cursor.execute('SELECT id FROM tasks WHERE id = ? AND user_id = ?', (task_id, user_id))
             if not cursor.fetchone():
-                return jsonify({"error": "Task not found"}), 404
-            
+                return jsonify({"error": "Task not found or not owned by user"}), 404
             # Delete the task
-            cursor.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+            cursor.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?', (task_id, user_id))
             conn.commit()
-            
             return "", 204
     except Exception as e:
         return jsonify({"error": str(e)}), 500
