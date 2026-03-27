@@ -25,16 +25,28 @@ python main.py
 
 ## API Endpoints
 
+## Authentication (Microsoft Entra ID)
+
+All `/api/*` endpoints require a valid Microsoft Entra ID (Azure AD) access token in the `Authorization` header:
+
+```
+Authorization: Bearer <access_token>
+```
+
+You must obtain an access token for the API (audience = your API's client_id) and include it in every request.
+
 **Get all tasks:**
 
 ```bash
-curl http://localhost:8000/api/tasks
+curl http://localhost:8000/api/tasks \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **Create a task:**
 
 ```bash
 curl -X POST http://localhost:8000/api/tasks \
+  -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{"title":"My Task","description":"Task description"}'
 ```
@@ -42,7 +54,8 @@ curl -X POST http://localhost:8000/api/tasks \
 **Delete a task:**
 
 ```bash
-curl -X DELETE http://localhost:8000/api/tasks/{id}
+curl -X DELETE http://localhost:8000/api/tasks/{id} \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **View API docs:**

@@ -1,4 +1,6 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
+import msal
+import jwt
 from datetime import datetime
 import uuid
 import os
@@ -12,6 +14,57 @@ from azure.identity import DefaultAzureCredential
 load_dotenv()
 
 app = Flask(__name__)
+
+# Microsoft Entra ID (Azure AD) configuration
+TENANT_ID = "d1757f34-71b6-46de-96c4-53d7e63ac048"
+CLIENT_ID = "628261c4-27bc-4c21-87f4-6ee5cf01cb06"
+API_AUDIENCE = CLIENT_ID  # Usually the client_id of the API app registration
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
+
+def validate_access_token(token):
+    """Validate the JWT access token from Microsoft Entra ID (Azure AD)."""
+    # Get public keys from Microsoft
+    import requests
+    openid_config_url = f"{AUTHORITY}/v2.0/.well-known/openid-configuration"
+    resp = requests.get(openid_config_url)
+    jwks_uri = resp.json().get("jwks_uri")
+    keys = requests.get(jwks_uri).json()["keys"]
+
+    # Decode and validate token
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+        for key in keys:
+            if key["kid"] == unverified_header["kid"]:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                break
+        else:
+            return False, "Public key not found"
+
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=[unverified_header["alg"]],
+            audience=API_AUDIENCE,
+            issuer=ISSUER,
+            options={"verify_exp": True, "verify_aud": True, "verify_iss": True}
+        )
+        return True, payload
+    except Exception as e:
+        return False, str(e)
+
+# Protect all /api/* endpoints
+@app.before_request
+def check_jwt_token():
+    if request.path.startswith("/api/"):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "Missing or invalid Authorization header"}), 401
+        token = auth_header.split(" ", 1)[1]
+        valid, result = validate_access_token(token)
+        if not valid:
+            return jsonify({"error": f"Invalid access token: {result}"}), 401
+        g.user = result  # Optionally store user info for use in endpoints
 
 # Mount path where the CSI driver places Key Vault secrets as files
 SECRETS_MOUNT_PATH = os.getenv('SECRETS_MOUNT_PATH', '/mnt/secrets-store')
