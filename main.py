@@ -20,7 +20,7 @@ TENANT_ID = "d1757f34-71b6-46de-96c4-53d7e63ac048"
 CLIENT_ID = "44ac30db-086a-4b08-8baf-1ec3bc4cb43e"
 API_AUDIENCE = CLIENT_ID  # Usually the client_id of the API app registration
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-ISSUER = f"https://sts.windows.net/{TENANT_ID}/"
+ISSUER = f"https://login.microsoftonline.com/{TENANT_ID}/"
 
 def validate_access_token(token):
     """Validate the JWT access token from Microsoft Entra ID (Azure AD)."""
