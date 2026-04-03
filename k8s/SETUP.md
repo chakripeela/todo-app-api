@@ -32,6 +32,11 @@ For DR deployments, add these additional repository secrets:
 | `AZURE_TENANT_ID_DR`               | Optional override if DR uses a different tenant |
 | `AZURE_SUBSCRIPTION_ID_DR`         | Optional override if DR uses a different sub    |
 
+The deployment workflow renders the Key Vault name into the CSI manifest per target region:
+
+- Primary AKS uses `kvtodoappsouthcentralus`, which resolves to `https://kvtodoappsouthcentralus.vault.azure.net/`
+- DR AKS uses `kvtodoappwestus`, which resolves to `https://kvtodoappwestus.vault.azure.net/`
+
 ## Step 2: Create Service Principal with OIDC Federation
 
 This uses OpenID Connect - no need to store credentials!
