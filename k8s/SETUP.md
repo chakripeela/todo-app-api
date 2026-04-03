@@ -21,6 +21,17 @@ Add the following secrets to your GitHub repository (Settings → Secrets and va
 | `AKS_RESOURCE_GROUP`    | Azure resource group containing AKS | `myresourcegroup`           |
 | `AKS_CLUSTER_NAME`      | Your AKS cluster name               | `myakscluster`              |
 
+For DR deployments, add these additional repository secrets:
+
+| Secret Name                        | Description                                     |
+| ---------------------------------- | ----------------------------------------------- |
+| `AKS_RESOURCE_GROUP_DR`            | Azure resource group containing the DR AKS      |
+| `AKS_CLUSTER_NAME_DR`              | DR AKS cluster name                             |
+| `KV_SECRETS_PROVIDER_CLIENT_ID_DR` | Client ID for the DR Key Vault CSI provider     |
+| `AZURE_CLIENT_ID_DR`               | Optional override if DR uses a different app ID |
+| `AZURE_TENANT_ID_DR`               | Optional override if DR uses a different tenant |
+| `AZURE_SUBSCRIPTION_ID_DR`         | Optional override if DR uses a different sub    |
+
 ## Step 2: Create Service Principal with OIDC Federation
 
 This uses OpenID Connect - no need to store credentials!

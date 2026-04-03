@@ -3,18 +3,25 @@ name: Build and Deploy to AKS
 on: workflow_dispatch
 
 env:
-  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
   IMAGE_NAME: todo-api
 
 jobs:
-  build-and-deploy:
+  build-image:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
+    env:
+      REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+    outputs:
+      image_tag: ${{ steps.image.outputs.tag }}
 
     steps:
       - uses: actions/checkout@v3
+
+      - name: Capture image tag
+        id: image
+        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Azure Login with OIDC
         uses: azure/login@v1
@@ -35,25 +42,51 @@ jobs:
       - name: Build and push Docker image
         run: |
           docker buildx build --platform linux/arm64 \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.tag }} \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             --push \
             .
 
-      - name: Update deployment image
-        run: |
-          sed -i 's|<ACR_LOGIN_SERVER>|${{ env.REGISTRY }}|g' k8s/deployment.yml
-          sed -i 's|<IMAGE_TAG>|${{ github.sha }}|g' k8s/deployment.yml
+  deploy-primary:
+    name: Deploy to primary AKS
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+      IMAGE_TAG: ${{ needs.build-image.outputs.image_tag }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
+      AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
+      KV_SECRETS_PROVIDER_CLIENT_ID: ${{ secrets.KV_SECRETS_PROVIDER_CLIENT_ID }}
 
-      - name: Update secret provider class
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Render manifests
         run: |
-          sed -i 's|<key_vault_secrets_provider_client_id>|${{ secrets.KV_SECRETS_PROVIDER_CLIENT_ID }}|g' k8s/secret-provider-class.yml
-          sed -i 's|<your-tenant-id>|${{ secrets.AZURE_TENANT_ID }}|g' k8s/secret-provider-class.yml
+          mkdir -p rendered-k8s
+          cp k8s/*.yml rendered-k8s/
+          sed -i "s|<ACR_LOGIN_SERVER>|${REGISTRY}|g" rendered-k8s/deployment.yml
+          sed -i "s|<IMAGE_TAG>|${IMAGE_TAG}|g" rendered-k8s/deployment.yml
+          sed -i "s|<key_vault_secrets_provider_client_id>|${KV_SECRETS_PROVIDER_CLIENT_ID}|g" rendered-k8s/secret-provider-class.yml
+          sed -i "s|<your-tenant-id>|${AZURE_TENANT_ID}|g" rendered-k8s/secret-provider-class.yml
 
       - name: Set AKS context
         run: |
-          az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
-            --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+          az aks get-credentials --resource-group "${AKS_RESOURCE_GROUP}" \
+            --name "${AKS_CLUSTER_NAME}" --overwrite-existing
 
       - name: Create prerequisites
         run: |
@@ -61,9 +94,66 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          kubectl apply -f k8s/secret-provider-class.yml
-          kubectl apply -f k8s/deployment.yml
-          kubectl apply -f k8s/service.yml
+          kubectl apply -f rendered-k8s/secret-provider-class.yml
+          kubectl apply -f rendered-k8s/deployment.yml
+          kubectl apply -f rendered-k8s/service.yml
+          kubectl rollout status deployment/todo-api -n default --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods
+          kubectl get svc
+
+  deploy-dr:
+    name: Deploy to DR AKS
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+      IMAGE_TAG: ${{ needs.build-image.outputs.image_tag }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_DR != '' && secrets.AZURE_CLIENT_ID_DR || secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID_DR != '' && secrets.AZURE_TENANT_ID_DR || secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID_DR != '' && secrets.AZURE_SUBSCRIPTION_ID_DR || secrets.AZURE_SUBSCRIPTION_ID }}
+      AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP_DR }}
+      AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME_DR }}
+      KV_SECRETS_PROVIDER_CLIENT_ID: ${{ secrets.KV_SECRETS_PROVIDER_CLIENT_ID_DR }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Azure Login with OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Render manifests
+        run: |
+          mkdir -p rendered-k8s
+          cp k8s/*.yml rendered-k8s/
+          sed -i "s|<ACR_LOGIN_SERVER>|${REGISTRY}|g" rendered-k8s/deployment.yml
+          sed -i "s|<IMAGE_TAG>|${IMAGE_TAG}|g" rendered-k8s/deployment.yml
+          sed -i "s|<key_vault_secrets_provider_client_id>|${KV_SECRETS_PROVIDER_CLIENT_ID}|g" rendered-k8s/secret-provider-class.yml
+          sed -i "s|<your-tenant-id>|${AZURE_TENANT_ID}|g" rendered-k8s/secret-provider-class.yml
+
+      - name: Set AKS context
+        run: |
+          az aks get-credentials --resource-group "${AKS_RESOURCE_GROUP}" \
+            --name "${AKS_CLUSTER_NAME}" --overwrite-existing
+
+      - name: Create prerequisites
+        run: |
+          kubectl create serviceaccount todo-api --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to AKS
+        run: |
+          kubectl apply -f rendered-k8s/secret-provider-class.yml
+          kubectl apply -f rendered-k8s/deployment.yml
+          kubectl apply -f rendered-k8s/service.yml
           kubectl rollout status deployment/todo-api -n default --timeout=300s
 
       - name: Verify deployment
