@@ -63,6 +63,7 @@ jobs:
       AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
       AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
       KV_SECRETS_PROVIDER_CLIENT_ID: ${{ secrets.KV_SECRETS_PROVIDER_CLIENT_ID }}
+      KEY_VAULT_NAME: kvtodoappsouthcentralus
 
     steps:
       - uses: actions/checkout@v3
@@ -81,6 +82,7 @@ jobs:
           sed -i "s|<ACR_LOGIN_SERVER>|${REGISTRY}|g" rendered-k8s/deployment.yml
           sed -i "s|<IMAGE_TAG>|${IMAGE_TAG}|g" rendered-k8s/deployment.yml
           sed -i "s|<key_vault_secrets_provider_client_id>|${KV_SECRETS_PROVIDER_CLIENT_ID}|g" rendered-k8s/secret-provider-class.yml
+          sed -i "s|<key_vault_name>|${KEY_VAULT_NAME}|g" rendered-k8s/secret-provider-class.yml
           sed -i "s|<your-tenant-id>|${AZURE_TENANT_ID}|g" rendered-k8s/secret-provider-class.yml
 
       - name: Set AKS context
@@ -120,6 +122,7 @@ jobs:
       AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP_DR }}
       AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME_DR }}
       KV_SECRETS_PROVIDER_CLIENT_ID: ${{ secrets.KV_SECRETS_PROVIDER_CLIENT_ID_DR }}
+      KEY_VAULT_NAME: kvtodoappwestus
 
     steps:
       - uses: actions/checkout@v3
@@ -138,6 +141,7 @@ jobs:
           sed -i "s|<ACR_LOGIN_SERVER>|${REGISTRY}|g" rendered-k8s/deployment.yml
           sed -i "s|<IMAGE_TAG>|${IMAGE_TAG}|g" rendered-k8s/deployment.yml
           sed -i "s|<key_vault_secrets_provider_client_id>|${KV_SECRETS_PROVIDER_CLIENT_ID}|g" rendered-k8s/secret-provider-class.yml
+          sed -i "s|<key_vault_name>|${KEY_VAULT_NAME}|g" rendered-k8s/secret-provider-class.yml
           sed -i "s|<your-tenant-id>|${AZURE_TENANT_ID}|g" rendered-k8s/secret-provider-class.yml
 
       - name: Set AKS context
