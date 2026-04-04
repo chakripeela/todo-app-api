@@ -65,7 +65,10 @@ http://localhost:8000/docs
 
 ```bash
 az login --tenant d1757f34-71b6-46de-96c4-53d7e63ac048
- az aks get-credentials --resource-group rg-todo-app-centralus --name aks-todoapp --overwrite-existing
+```
+
+```bash
+ az aks get-credentials --resource-group rg-todo-app-southcentralus --name aks-todoapp --overwrite-existing
 ```
 
 ## These are some Manual steps need to be run after the application is deployed
@@ -73,7 +76,13 @@ az login --tenant d1757f34-71b6-46de-96c4-53d7e63ac048
 **Run below command to get key_vault_secrets_provider_client_id and update in git secret KV_SECRETS_PROVIDER_CLIENT_ID**
 
 ```bash
-az aks show --name aks-todoapp --resource-group rg-todo-app-centralus
+az aks show --name aks-todoapp --resource-group rg-todo-app-southcentralus
+```
+
+**Run below command to get key_vault_secrets_provider_client_id and update in git secret KV_SECRETS_PROVIDER_CLIENT_ID_DR**
+
+```bash
+az aks show --name aks-todoapp --resource-group rg-todo-app-westus
 ```
 
 **Add AKS agentpool managed identity in SQL so that AKS can connect to SQL**
