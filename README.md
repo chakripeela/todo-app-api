@@ -68,7 +68,11 @@ az login --tenant d1757f34-71b6-46de-96c4-53d7e63ac048
 ```
 
 ```bash
- az aks get-credentials --resource-group rg-todo-app-southcentralus --name aks-todoapp --overwrite-existing
+ az aks get-credentials --resource-group rg-todo-app-southcentralus --name aks-todoapp-southcentralus --overwrite-existing
+```
+
+```bash
+ az aks get-credentials --resource-group rg-todo-app-dr-westus --name aks-todoapp-westus --overwrite-existing
 ```
 
 ## These are some Manual steps need to be run after the application is deployed
@@ -76,19 +80,25 @@ az login --tenant d1757f34-71b6-46de-96c4-53d7e63ac048
 **Run below command to get key_vault_secrets_provider_client_id and update in git secret KV_SECRETS_PROVIDER_CLIENT_ID**
 
 ```bash
-az aks show --name aks-todoapp --resource-group rg-todo-app-southcentralus
+az aks show --name aks-todoapp-southcentralus --resource-group rg-todo-app-southcentralus
 ```
 
 **Run below command to get key_vault_secrets_provider_client_id and update in git secret KV_SECRETS_PROVIDER_CLIENT_ID_DR**
 
 ```bash
-az aks show --name aks-todoapp --resource-group rg-todo-app-westus
+az aks show --name aks-todoapp-westus --resource-group rg-todo-app-dr-westus
 ```
 
 **Add AKS agentpool managed identity in SQL so that AKS can connect to SQL**
 
 ```bash
-CREATE USER [aks-todoapp-agentpool] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_datareader ADD MEMBER [aks-todoapp-agentpool];
-ALTER ROLE db_datawriter ADD MEMBER [aks-todoapp-agentpool];
+CREATE USER [aks-todoapp-southcentralus-agentpool] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [aks-todoapp-southcentralus-agentpool];
+ALTER ROLE db_datawriter ADD MEMBER [aks-todoapp-southcentralus-agentpool];
+```
+
+```bash
+CREATE USER [aks-todoapp-westus-agentpool] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [aks-todoapp-westus-agentpool];
+ALTER ROLE db_datawriter ADD MEMBER [aks-todoapp-westus-agentpool];
 ```
