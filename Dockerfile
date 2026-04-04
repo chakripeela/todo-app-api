@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install ODBC Driver 18 for SQL Server (ARM64 compatible)
+# Install ODBC Driver 18 for SQL Server
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl gnupg2 apt-transport-https \
     && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
