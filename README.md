@@ -92,13 +92,13 @@ az aks show --name aks-todoapp-westus --resource-group rg-todo-app-dr-westus
 **Add AKS agentpool managed identity in SQL so that AKS can connect to SQL**
 
 ```bash
-CREATE USER [aks-todoapp-southcentralus-agentpool] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_datareader ADD MEMBER [aks-todoapp-southcentralus-agentpool];
-ALTER ROLE db_datawriter ADD MEMBER [aks-todoapp-southcentralus-agentpool];
+CREATE USER [todo-app-api-identity] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [todo-app-api-identity];
+ALTER ROLE db_datawriter ADD MEMBER [todo-app-api-identity];
 ```
 
 ```bash
-CREATE USER [aks-todoapp-westus-agentpool] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_datareader ADD MEMBER [aks-todoapp-westus-agentpool];
-ALTER ROLE db_datawriter ADD MEMBER [aks-todoapp-westus-agentpool];
+CREATE USER [todo-app-dr-api-identity] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [todo-app-dr-api-identity];
+ALTER ROLE db_datawriter ADD MEMBER [todo-app-dr-api-identity];
 ```
